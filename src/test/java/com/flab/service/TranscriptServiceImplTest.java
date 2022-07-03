@@ -19,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,11 +51,10 @@ class TranscriptServiceImplTest {
     void testGetAverageScore_HappyCase_VerifyReturnedValue_Success() {
         // given
         final int studentID = 1;
-        final Student trey = new Student().setId(studentID).setName("Trey").setMajor("Computer Engineering")
-                .setCourses(List.of(KOREAN, ENGLISH, MATH, SCIENCE));
+        final Student chanwoo = createStudent(studentID);
 
         Mockito.when(studentRepository.getStudent(1))
-                .thenReturn(Optional.of(trey));
+                .thenReturn(Optional.of(chanwoo));
 
         Mockito.when(scoreRepository.getScore(studentID, 1))
                 .thenReturn(Optional.of(new Score().setCourse(KOREAN).setScore(100)));
@@ -91,8 +91,7 @@ class TranscriptServiceImplTest {
 
         //given
         final int studentID = 1;
-        final Student chanwoo = new Student().setId(studentID).setName("Chanwoo").setMajor("Computer Engineering")
-                .setCourses(List.of(KOREAN, ENGLISH, MATH, SCIENCE));
+        final Student chanwoo = createStudent(studentID);
 
         Mockito.when(studentRepository.getStudent(1))
                 .thenReturn(Optional.of(chanwoo));
@@ -106,17 +105,12 @@ class TranscriptServiceImplTest {
                 .thenReturn(Optional.of(new Score().setCourse(SCIENCE).setScore(70)));
 
         //when
-        final double averageScore = transcriptService.getAverageScore(studentID);
+        transcriptService.getAverageScore(studentID);
 
         //then
-        Mockito.verify(studentRepository,times(1)).getStudent(studentID);
+        Mockito.verify(studentRepository).getStudent(studentID);
 
-        for(var course : chanwoo.getCourses()) {
-            Mockito.verify(scoreRepository,
-                            times(1))
-                    .getScore(studentID,course.getId());
-        }
-
+        chanwoo.getCourses().forEach(course -> Mockito.verify(scoreRepository).getScore(studentID, course.getId()));
     }
 
     @Test
@@ -124,51 +118,65 @@ class TranscriptServiceImplTest {
     void testGetAverageScore_ScoreNotExist_ThrowNoSuchScoreException_Error() {
 
         final int studentID = 1;
-        final Student trey = new Student().setId(studentID).setName("Chan").setMajor("Computer Engineering")
-                .setCourses(List.of(KOREAN, ENGLISH, MATH, SCIENCE));
+        final int courseID = 1;
+        final Student chan = createStudent(studentID);
+
+        Mockito.when(scoreRepository.getScore(studentID, courseID))
+                .thenReturn(Optional.empty());
 
         Mockito.when(studentRepository.getStudent(studentID))
-                .thenReturn(Optional.of(trey));
-
+                .thenReturn(Optional.of(chan));
 
         Assertions.assertThrows(NoSuchScoreException.class, () -> transcriptService.getAverageScore(studentID));
-
-
     }
 
     @Test
     @DisplayName("getRankedStudentAsc()를 호출하면, 입력으로 주어진 course를 수강하는 모든 학생들의 리스트를 성적의 내림차순으로 리턴한다.")
     void testGetRankedStudentsAsc_HappyCase_VerifyReturnedValueAndInteractions_Success() {
         // given
-        final Student chan1 = new Student().setId(1).setName("Chanwoo1").setMajor("Computer Engineering")
-                .setCourses(List.of(KOREAN, ENGLISH, MATH, SCIENCE));
+        final Student chan1 = createStudent(1);
+        final Student chan2 = createStudent(2);
+        final int courseID = 1;
 
-        final Student chan2 = new Student().setId(2).setName("Chanwoo2").setMajor("Computer Engineering")
-                .setCourses(List.of(KOREAN, ENGLISH, MATH, SCIENCE));
-
-        Mockito.when(courseRepository.getCourse(1))
+        Mockito.when(courseRepository.getCourse(courseID))
                 .thenReturn(Optional.of(KOREAN));
 
         Mockito.when(scoreRepository.getScores(KOREAN.getId()))
-                .thenReturn(Map.of(1,new Score().setScore(100),2,new Score().setScore(90)));
+                .thenReturn(Map.of(
+                                1, new Score().setScore(100),
+                                2, new Score().setScore(90)
+                        )
+                );
 
         Mockito.when(studentRepository.getAllStudents())
                 .thenReturn(List.of(chan1, chan2));
 
         //when
-        List<Student> students = transcriptService.getRankedStudentsAsc(KOREAN.getId());
+        final List<Student> students = transcriptService.getRankedStudentsAsc(KOREAN.getId());
 
         //then
-        Assertions.assertEquals(chan1.getId(),students.get(0).getId());
-
+        Assertions.assertEquals(chan1.getId(), students.get(0).getId());
+        Assertions.assertEquals(List.of(chan1, chan2), students);
     }
 
     @Test
     @DisplayName("courseRepository에서 입력으로 주어진 courseID로 course를 조회할 수 없으면 NoSuchCourseException을 Throw 한다.")
     void testGetRankedStudentsAsc_CourseNotExist_ThrowNoSuchCourseException_Error() {
-        Mockito.when(courseRepository.getCourse(1))
-                .thenThrow(NoSuchCourseException.class);
-        Assertions.assertThrows(NoSuchCourseException.class, () -> courseRepository.getCourse(1));
+        final int courseID = 1;
+
+        Mockito.when(courseRepository.getCourse(courseID))
+                .thenReturn(Optional.empty());
+
+        Assertions.assertThrows(NoSuchCourseException.class, () -> transcriptService.getRankedStudentsAsc(courseID));
 
     }
+
+    Student createStudent(int id) {
+        return new Student()
+                .setId(id)
+                .setName("Chanwoo" + id)
+                .setMajor("Computer Engineering")
+                .setCourses(List.of(KOREAN, ENGLISH, MATH, SCIENCE));
+    }
+
 }
