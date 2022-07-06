@@ -171,7 +171,7 @@ class TranscriptServiceImplTest {
 
     }
 
-    Student createStudent(int id) {
+    private Student createStudent(int id) {
         return new Student()
                 .setId(id)
                 .setName("Chanwoo" + id)
